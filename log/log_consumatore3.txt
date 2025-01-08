@@ -1,0 +1,2 @@
+send_message(send_message(risposta_id([0,_352727]),_352727))
+send_message(send_message(spesa([medicina,_384459]),_384459))

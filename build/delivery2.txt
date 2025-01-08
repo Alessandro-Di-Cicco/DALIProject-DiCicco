@@ -1,0 +1,34 @@
+:-dynamic phase/1.
+:-dynamic state/1.
+:-dynamic current_position/1.
+
+phase(init).
+phaseI(init):> messageA(coordinator, send_message(delivery_ready(Me), Me)).
+ready_receivedE:> retract(phase(init)), format('Synced with coordinator~n', []).
+
+/* TODO: remember to change state to busy and manage requests when busy */
+new_deliveryE(Location, Resource, Quantity):>   \+ state(busy),
+                                                format('Accepted delivery for ~w ~w to ~w~n', [Quantity, Resource, Location]),
+                                                messageA(coordinator, send_message(driver_accepts(Me, Location, Resource, Quantity), Me)),
+                                                assert(busy).
+
+new_deliveryE(Location, Resource, Quantity):>   
+    state(busy),
+    format('Refusing delivery for ~w ~w to ~w~n', [Quantity, Resource, Location]),
+    messageA(coordinator, send_message(driver_busy(Me, Location, Resource, Quantity), Me)).
+
+
+pos_updateE(Where):> 
+    format('Moving to ~w~n', [Where]),
+    (current_position(Other) -> retract(current_position(Other)); true),
+    assert(current_position(Where)),
+    messageA(coordinator, send_message(driver_location(Me, Where), Me)).
+
+/* This is here to allow to create a desynchronized state between drivers and the coordinator from
+the user's terminal, to showcase re-sync mechanisms */
+set_busyE:> assert(state(busy)).
+
+/* 
+    current_position(Other) -> retract(current_position(Other)),
+    messageA(coordinator, send_message(driver_location(Me, Location), Me))
+*/

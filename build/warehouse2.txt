@@ -1,0 +1,49 @@
+:-dynamic owns/2.
+:-dynamic in_request/3.
+:-dynamic phase/1.
+
+/*
+To shut down waiting connections:
+sudo ss --tcp state TIME-WAIT --kill
+*/
+
+printall:- owns(copper, Q), format('There is ~w copper~n', [Q]).
+
+phase(init).
+phaseI(init):> messageA(coordinator, send_message(warehouse_ready(Me), Me)).
+ready_receivedE:> retract(phase(init)), format('Synced with coordinator~n', []).
+
+in_requestI(R, Q, Sender):> owns(R, P), P>=Q ,format("obtained ~w ~w~n", [R, Q]),
+                    retract(in_request(R, Q, Sender)), 
+                    retract(owns(R, P)), New is P-Q, assert(owns(R, New)), printall,
+                    give(R, Q, Sender).
+
+in_requestI(R, Q, Sender):> owns(R, P), P<Q, format("rejecting ~w ~w~n", [R, Q]),
+                            retract(in_request(R, Q, Sender)),
+                            deny(R, Q, Sender).
+
+askE(M, Q, Sender):> format('Received basic request from ~w~n', [Sender]),
+                     messageA(Sender, send_message(ack, Me)),
+                     assert(in_request(M, Q, Sender)).
+
+give(R, Q, Sender):- messageA(Sender, send_message(granted(R, Q), Me)).
+deny(R, Q, Sender):- messageA(Sender, send_message(deny, Me)).
+
+update_coordinator(Resource, Qty):- 
+    messageA(coordinator, send_message(warehouse_update(Me, Resource, Qty), Me)).    
+
+/* Mechanism for filling the warehouse */
+restockE(Resource, Qty):>   owns(Resource, Q),
+                            P is Q + Qty,
+                            retract(owns(Resource, Q)),
+                            assert(owns(Resource, P)),
+                            format('Refilled ~w by ~w, now at ~w~n', [Resource, Qty, P]),
+                            update_coordinator(Resource, P).
+
+restockE(Resource, Qty):>   \+ owns(Resource, Q),
+                            assert(owns(Resource, Qty)),
+                            format('Refilled ~w by ~w, now at ~w~n', [Resource, Qty, Qty]),
+                            update_coordinator(Resource, Qty).
+
+/* Delete owns facts for empty material reserves */
+ownsI(Resource, 0):> retract(owns(Resource, 0)).

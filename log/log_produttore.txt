@@ -1,0 +1,4 @@
+send_message(send_message(arrivo_merci(cibo),_27451))
+send_message(send_message(arrivo_merci(acqua),_27421))
+send_message(send_message(arrivo_merci(medicina),_40787))
+send_message(send_message(arrivo_merci(medicina),_29343))

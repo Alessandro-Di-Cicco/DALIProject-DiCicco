@@ -1,0 +1,190 @@
+:-dynamic phase/1.
+:-dynamic waiting_for/2.
+
+:-dynamic warehouse_online/1.
+:-dynamic in_stock/3.
+
+:-dynamic delivery_online/1.
+:-dynamic delivery_busy/1.
+:-dynamic delivery_location/1.
+:-dynamic driver_at/2.
+
+:-dynamic delivery_request/4.
+
+/* Graph representation through distances */
+
+distance(city_a, warehouse1, 3).
+distance(city_a, warehouse2, 2).
+
+distance(city_b, warehouse2, 3).
+distance(city_b, warehouse1, 2).
+distance(city_b, warehouse3, 1.5).
+
+distance(city_c, warehouse3, 3).
+distance(city_d, warehouse3, 3).
+distance(city_c, city_d, 3).
+
+distance(warehouse2, warehouse3, 1.5).
+
+/* Distance commutativity rule */
+distance(From, To, N) :- distance(To, From, N).
+
+/* -------------------------------------- */
+
+/* ========= Pathfinding logic ========= */
+
+/* Base case */
+path(Start, Target, Distance):- distance(Start, Target, Distance).
+
+/* Induction, this need to exclude repetitions somehow. Use a list or a set? */
+path(Start, End, TotalDistance):-
+    distance(Start, Intermediate, Distance1),
+    path(Intermediate, End, Distance2),
+    TotalDistance is Distance1 + Distance2.
+
+/* Shortest path search:
+Note that this approach is extremely slow and would have to be replaced
+for bigger graphs. Some form of heuristic search (e.g. A*) would be better suited
+for the task */
+shortest_path(Start, End, ShortestDistance):-
+    findall(Distance, path(Start, End, Distance), Distances),
+    min_list(Distances, ShortestDistance).
+
+/* ===================================== */
+
+phase(waiting).
+waiting_for(warehouse, 3).
+waiting_for(delivery, 2).
+
+/* Syncing of a new warehouse */
+warehouse_readyE(Warehouse):>   phase(waiting),
+                                \+ warehouse_online(Warehouse),
+                                waiting_for(warehouse, N),
+                                M is N - 1,
+                                assert(warehouse_online(Warehouse)),
+                                retract(waiting_for(warehouse, N)),
+                                assert(waiting_for(warehouse, M)),
+                                messageA(Warehouse, send_message(ready_received, Me)),
+                                format('Successfully received warehouse ~w', [Warehouse]),
+                                phase_check.
+
+/* Managing an already synced warehouse that sent another sync message */
+warehouse_readyE(Warehouse):>   phase(waiting),
+                                warehouse_online(Warehouse),
+                                messageA(Warehouse, send_message(ready_received, Me)),
+                                format('Got multiple ready messages from ~w', [Warehouse]).
+
+/* Managing sync message when sync phase is over */
+warehouse_readyE(Warehouse):>   \+ phase(waiting),
+                                format('Receiving sync message from ~w after ready phase is over, something is wrong', [Warehouse]).
+
+
+/* Removes any previous knowledge about the amount of this given resource for the given warehouse */
+warehouse_updateE(Warehouse, Resource, Amount):> 
+    format('Stock update: ~w has ~w ~w~n', [Warehouse, Amount, Resource]),
+    (in_stock(Warehouse, Resource, Any) -> retract(in_stock(Warehouse, Resource, Any)); true),
+    assert(in_stock(Warehouse, Resource, Amount)).
+
+
+/* Syncing of a new delivery */
+delivery_readyE(Delivery):>  phase(waiting),
+                            \+ delivery_online(Delivery),
+                            waiting_for(delivery, N),
+                            M is N - 1,
+                            assert(delivery_online(Delivery)),
+                            retract(waiting_for(delivery, N)),
+                            assert(waiting_for(delivery, M)),
+                            messageA(Delivery, send_message(ready_received, Me)),
+                            format('Successfully received delivery ~w', [Delivery]),
+                            phase_check.
+
+/* Managing an already synced delivery that sent another sync message */
+delivery_readyE(Delivery):> phase(waiting),
+                            delivery_online(Delivery),
+                            messageA(Delivery, send_message(ready_received, Me)),
+                            format('Got multiple ready messages from ~w', [Delivery]).
+
+/* Managing sync message when sync phase is over */
+delivery_readyE(Delivery):> \+ phase(waiting),
+                            format('Receiving sync message from ~w after ready phase is over, something is wrong', [Warehouse]).
+
+
+driver_locationE(Driver, Location):>
+    (driver_at(Driver, OtherLocation) -> retract(driver_at(Driver, OtherLocation)); true),
+    assert(driver_at(Driver, Location)),
+    format('~w is now located at ~w~n', [Driver, Location]).
+
+
+phase_check:- waiting_for(Agent, N), N > 0.
+phase_check:-   waiting_for(warehouse, 0), 
+                waiting_for(delivery, 0), 
+                retract(phase(waiting)), 
+                format('~nAll agents successfully synced~n', []),
+                assert(phase(init)).
+
+phaseI(init):>  messageA(warehouse1, send_message(restock(copper, 100), Me)),
+                messageA(warehouse1, send_message(restock(iron, 50), Me)),
+                messageA(warehouse1, send_message(restock(silver, 30), Me)),
+
+                messageA(warehouse2, send_message(restock(copper, 50), Me)),
+                messageA(warehouse2, send_message(restock(iron, 100), Me)),
+
+                messageA(warehouse3, send_message(restock(copper, 50), Me)),
+                messageA(warehouse3, send_message(restock(iron, 200), Me)),
+
+                messageA(delivery1, send_message(pos_update(city_a), Me)),
+                messageA(delivery2, send_message(pos_update(city_d), Me)),
+
+                format('Refilled all warehouses', []),
+                retract(phase(init)).
+
+
+/* Finds a driver that is not busy */
+available_driver(Delivery):- delivery_online(Delivery), \+ delivery_busy(Delivery).
+available_driver_at(Driver, Location):- available_driver(Driver), driver_at(Driver, Location).
+ 
+find_warehouse(Resource, Quantity, Warehouse):-
+    in_stock(Warehouse, Resource, AvailableQty),
+    AvailableQty >= Quantity.
+
+
+deliverE(Location, Resource, Quantity, Sender):> assert(delivery_request(Location, Resource, Quantity, Sender)).
+
+/* Notice that in the "true" branch, the requested driver is marked as busy so that, even if it's unresponsive
+the coordinator doesn't get stuck constantly asking for a delivery, and on the next internal update it will ask another driver
+until one accepts or until it runs out of drivers! */
+delivery_requestI(Location, Resource, Quantity, Sender):> 
+    (available_driver(Driver), find_warehouse(Resource, Quantity, Warehouse)) -> 
+    (
+        make_delivery(Location, Resource, Quantity),
+        assert(delivery_busy(Driver)),
+        format('Asked ~w to deliver ~w ~w to ~w~n', [Driver, Quantity, Resource, Location])
+    );
+    (
+        format('Rejected delivery of ~w ~w to ~w~nNo drivers available~n', [Quantity, Resource, Location]),
+        reject_delivery(Location, Resource, Quantity, Sender),
+        retract(delivery_request(Location, Resource, Quantity, Sender))
+    ).
+
+make_delivery(Destination, Resource, Quantity):-
+    format('Delivery computation~n', []),
+    available_driver_at(Driver, DriverLocation),
+    find_warehouse(Resource, Quantity, Warehouse),
+    shortest_path(DriverLocation, Warehouse, Distance1),
+    shortest_path(Warehouse, Destination, Distance2),
+    TotalDistance is Distance1 + Distance2,
+    format('selected ~w going to ~w for a distance of ~w~n', [SelectedDriver, SelectedWarehouse, TotalDistance]).
+
+
+driver_busyE(Driver, Location, Resource, Quantity):> format('~w is busy, declined the request~n', [Driver]).
+
+driver_acceptsE(Driver, Location, Resource, Quantity):>
+    delivery_request(Location, Resource, Quantity, Sender),
+    retract(delivery_request(Location, Resource, Quantity, Sender)),
+    messageA(Sender, send_message(accepted(Location, Resource, Quantity), Me)).
+
+
+/* For some reason messages cannot be nested into parentheses so, whenever used in an if-like construct
+(by combining -> and ;) the message action needs to be moved into its own rule */
+reject_delivery(Location, Resource, Quantity, Sender):-
+    messageA(Sender, send_message(rejected(Location, Resource, Quantity), Me)).
