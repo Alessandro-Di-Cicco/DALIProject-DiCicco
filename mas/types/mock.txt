@@ -103,7 +103,7 @@ perform_refill:-
 
     random_element(WarehouseList, Warehouse),
     random_element(MaterialList, Material),
-    random(Min, Max, Amount),
+    random(20, 30, Amount),
 
     messageA(Warehouse, send_message(restock(Material, Amount), Me)),
     format('Added ~w ~w to ~w~n', [Amount, Material, Warehouse]).
