@@ -55,14 +55,6 @@ path(Start, End, TotalDistance, Visited, Path) :-
 find_path(Start, End, TotalDistance, Path):-
     path(Start, End, TotalDistance, [Start], Path).
 
-/* Shortest path search:
-Note that this approach is extremely slow and would have to be replaced
-for bigger graphs. Some form of heuristic search (e.g. A*) would be better suited
-for the task */
-shortest_path(Start, End, ShortestDistance):-
-    findnsols(5, Distance, path(Start, End, Distance, Visited), Distances),
-    min_list(Distances, ShortestDistance).
-
 /* ===================================== */
 
 phase(waiting).
@@ -149,7 +141,13 @@ phaseI(init):>  messageA(warehouse1, send_message(restock(copper, 100), Me)),
                 messageA(delivery2, send_message(pos_update(city_d), Me)),
 
                 format('Refilled all warehouses', []),
-                retract(phase(init)).
+                retract(phase(init)),
+                assert(phase(ready)).
+
+
+start_checkE(Sender):>
+    phase(ready),
+    messageA(Sender, send_message(coord_ready, Me)).
 
 
 /* Finds a driver that is not busy */
@@ -181,23 +179,16 @@ delivery_requestI(Location, Resource, Quantity, Sender):>
     ).
 
 make_delivery(Destination, Resource, Quantity):-
-    format('Delivery computation~n', []),
-
     available_driver_at(Driver, DriverLocation),
-    format('Found driver ~w located in ~w~n', [Driver, DriverLocation]),
-
     find_warehouse(Resource, Quantity, Warehouse),
-    format('Found warehouse ~w with ~w ~w~n', [Warehouse, Quantity, Resource]),
 
     find_path(DriverLocation, Warehouse, Distance1, Path1),
-    format('Computed path from driver to warehouse ~w~n', [Path1]),
-
     find_path(Warehouse, Destination, Distance2, Path2),
-    format('Computed path from warehouse to destination ~w~n', [Path2]),
 
     TotalDistance is Distance1 + Distance2,
     messageA(Driver, send_message(new_delivery(Destination, Warehouse, Resource, Quantity), Me)),
-    format('selected ~w going to ~w for a distance of ~w~n~n', [SelectedDriver, SelectedWarehouse, TotalDistance]).
+
+    format('Assigned ~w going from ~w to ~w for a distance of ~w~n~n', [Driver, Warehouse, Destination, TotalDistance]).
 
 
 /* If a driver is busy, reinstate the request and assign it to someone else */

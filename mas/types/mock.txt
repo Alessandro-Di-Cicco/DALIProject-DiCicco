@@ -1,0 +1,13 @@
+:-dynamic phase/1.
+:-dynamic coord/1.
+
+phase(init).
+phaseI(init):> 
+    format('Waiting for coord~n', []),
+    messageA(coordinator, send_message(start_check(Me), Me)).
+
+
+coord_readyE:>
+    assert(coord(go)),
+    retract(phase(init)),
+    format('Coordinator is ready~n', []).

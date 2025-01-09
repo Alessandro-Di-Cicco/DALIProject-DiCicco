@@ -141,7 +141,13 @@ phaseI(init):>  messageA(warehouse1, send_message(restock(copper, 100), Me)),
                 messageA(delivery2, send_message(pos_update(city_d), Me)),
 
                 format('Refilled all warehouses', []),
-                retract(phase(init)).
+                retract(phase(init)),
+                assert(phase(ready)).
+
+
+start_checkE(Sender):>
+    phase(ready),
+    messageA(Sender, send_message(coord_ready, Me)).
 
 
 /* Finds a driver that is not busy */

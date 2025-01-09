@@ -35,38 +35,72 @@ make_delivery(Destination, Resource, Quantity):- format('Hey there cowboy ~w ~w 
 make_delivery(Location, Resource, Quantity),
 */
 
+:-dynamic phase/1.
+:-dynamic is_ready/1.
+:-dynamic request/1.
+:-dynamic refills/1.
+
+cities([city_a, city_b, city_c, city_d]).
+materials([copper, iron, silver]).
+amount_bounds(5, 20).
 
 
+phase(init).
 
-make_delivery(Destination, Resource, Quantity):-
-    format('Delivery computation~n', []),
-    available_driver_at(Driver, DriverLocation),
+phaseI(Any):> 
+    format('Check on coordinator~n', []),
+    messageA(coordinator, send_message(start_check(Me), Me)).
 
-    format('Found driver ~w located in ~w~n', [Driver, DriverLocation]),
-    find_warehouse(Resource, Quantity, Warehouse),
+coord_readyE:>
+    assert(is_ready(yes)),
+    retract(phase(init)),
+    format('Coordinator is ready~n', []).
 
-    format('Found warehouse ~w with ~w ~w~n', [Warehouse, Quantity, Resource]),
-    find_path(DriverLocation, Warehouse, Distance1, Path1),
-
-    format('Computed path from driver to warehouse~n', []),
-    find_path(Warehouse, Destination, Distance2, Path2),
-
-    format('Computed path from warehouse to destination~n', []),
-    TotalDistance is Distance1 + Distance2,
-
-    format('selected ~w going to ~w for a distance of ~w~n', [SelectedDriver, SelectedWarehouse, TotalDistance]).
+    random(1, 4, RandNum),
+    assert(request(RandNum)).
 
 
-path(X, Y, Path) :-
-    path(X, Y, [X, Y], P1),
-    Path = [X|P1].    
+/* Utility procedures to sleep for a random period and to 
+fetch a random element from a list */
+pause:-
+    random(1, 5, Len),
+    sleep(Len).
 
-path(X, Y, _, Path) :-
-    connected(X, Y, _),
-    Path = [Y].
+random_element(List, Element):-
+    length(List, Length),
+    random(1, Length + 1, Index),
+    nth1(Index, List, Element).
+/* ------------------------------------------------------*/
 
-path(X, Y, Visited, Path) :-
-    connected(X, Z, _),
-    not(member(Z, Visited)),
-    path(Z, Y, [Z|Visited], P1),
-    Path = [Z|P1].
+
+requestI(Num):>
+    Num > 0,
+    retract(request(Num)),
+    N is Num - 1,
+
+    perform_request,
+
+    pause,
+
+    assert(request(N)).
+
+
+requestI(0):>
+    retract(request(0)),
+    perform_request,
+
+    pause,
+
+    assert(refills(5)).
+
+
+perform_request:-
+    cities(CityList),
+    materials(MaterialList),
+    amount_bounds(Min, Max),
+
+    random_element(CityList, City),
+    random_element(MaterialList, Material),
+    random(Min, Max, Amount),
+    messageA(coordinator, send_message(deliver(City, Material, Amount, Me), Me)),
+    format('Requested ~w ~w to ~w~n', [Amount, Material, City]).

@@ -1,99 +1,13 @@
 
-:-dynamic distance/3.
-
 :-dynamic phase/1.
 
-:-dynamic waiting_for/2.
+:-dynamic coord/1.
 
-:-dynamic warehouse_online/1.
+phase(init).
 
-:-dynamic in_stock/3.
+evi(phase(init)):-format('on god~n',[]),a(message(coordinator,send_message(start_check(var_Me),var_Me))).
 
-:-dynamic delivery_online/1.
-
-:-dynamic delivery_busy/1.
-
-:-dynamic delivery_location/1.
-
-:-dynamic driver_at/2.
-
-:-dynamic delivery_request/4.
-
-distance(city_a,warehouse1,3).
-
-distance(city_a,warehouse2,2).
-
-distance(city_b,warehouse2,3).
-
-distance(city_b,warehouse1,2).
-
-distance(city_b,warehouse3,1.5).
-
-distance(city_c,warehouse3,3).
-
-distance(city_d,warehouse3,3).
-
-distance(city_c,city_d,3).
-
-distance(warehouse2,warehouse3,1.5).
-
-connected(var_A,var_B,var_Dist):-distance(var_A,var_B,var_Dist).
-
-connected(var_B,var_A,var_Dist):-distance(var_A,var_B,var_Dist).
-
-path(var_Start,var_Start,0,var_Visited,var_Visited):-true.
-
-path(var_Start,var_End,var_TotalDistance,var_Visited,var_Path):-format('Looking for path from ~w to ~w with visited ~w~n',[var_Start,var_End,var_Visited]),connected(var_Start,var_Intermediate,var_Distance1),format(' Exploring ~w~n',[var_Intermediate]),\+member(var_Intermediate,var_Visited),format('Exploring Intermediate ~w from ~w~n',[var_Intermediate,var_Start]),append([var_Intermediate],var_Visited,var_NewList),format('Created ~w from ~w and ~w~n',[var_NewList,var_Intermediate,var_Visited]),path(var_Intermediate,var_End,var_Distance2,var_NewList,var_Path),var_TotalDistance is var_Distance1+var_Distance2.
-
-find_path(var_Start,var_End,var_TotalDistance,var_Path):-path(var_Start,var_End,var_TotalDistance,[var_Start],var_Path).
-
-phase(waiting).
-
-waiting_for(warehouse,3).
-
-waiting_for(delivery,2).
-
-eve(warehouse_ready(var_Warehouse)):-phase(waiting),\+warehouse_online(var_Warehouse),waiting_for(warehouse,var_N),var_M is var_N-1,assert(warehouse_online(var_Warehouse)),retract(waiting_for(warehouse,var_N)),assert(waiting_for(warehouse,var_M)),a(message(var_Warehouse,send_message(ready_received,var_Me))),format('Successfully received warehouse ~w',[var_Warehouse]),phase_check.
-
-eve(warehouse_ready(var_Warehouse)):-phase(waiting),warehouse_online(var_Warehouse),a(message(var_Warehouse,send_message(ready_received,var_Me))),format('Got multiple ready messages from ~w',[var_Warehouse]).
-
-eve(warehouse_ready(var_Warehouse)):- \+phase(waiting),format('Receiving sync message from ~w after ready phase is over, something is wrong',[var_Warehouse]).
-
-eve(warehouse_update(var_Warehouse,var_Resource,var_Amount)):-format('Stock update: ~w has ~w ~w~n',[var_Warehouse,var_Amount,var_Resource]),(in_stock(var_Warehouse,var_Resource,var_Any)->retract(in_stock(var_Warehouse,var_Resource,var_Any));true),assert(in_stock(var_Warehouse,var_Resource,var_Amount)).
-
-eve(delivery_ready(var_Delivery)):-phase(waiting),\+delivery_online(var_Delivery),waiting_for(delivery,var_N),var_M is var_N-1,assert(delivery_online(var_Delivery)),retract(waiting_for(delivery,var_N)),assert(waiting_for(delivery,var_M)),a(message(var_Delivery,send_message(ready_received,var_Me))),format('Successfully received delivery ~w',[var_Delivery]),phase_check.
-
-eve(delivery_ready(var_Delivery)):-phase(waiting),delivery_online(var_Delivery),a(message(var_Delivery,send_message(ready_received,var_Me))),format('Got multiple ready messages from ~w',[var_Delivery]).
-
-eve(delivery_ready(var_Delivery)):- \+phase(waiting),format('Receiving sync message from ~w after ready phase is over, something is wrong',[var_Warehouse]).
-
-eve(driver_location(var_Driver,var_Location)):-(driver_at(var_Driver,var_OtherLocation)->retract(driver_at(var_Driver,var_OtherLocation));true),assert(driver_at(var_Driver,var_Location)),format('~w is now located at ~w~n',[var_Driver,var_Location]).
-
-phase_check:-waiting_for(var_Agent,var_N),var_N>0.
-
-phase_check:-waiting_for(warehouse,0),waiting_for(delivery,0),retract(phase(waiting)),format('~nAll agents successfully synced~n',[]),assert(phase(init)).
-
-evi(phase(init)):-a(message(warehouse1,send_message(restock(copper,100),var_Me))),a(message(warehouse1,send_message(restock(iron,50),var_Me))),a(message(warehouse1,send_message(restock(silver,30),var_Me))),a(message(warehouse2,send_message(restock(copper,50),var_Me))),a(message(warehouse2,send_message(restock(iron,100),var_Me))),a(message(warehouse3,send_message(restock(copper,50),var_Me))),a(message(warehouse3,send_message(restock(iron,200),var_Me))),a(message(delivery1,send_message(pos_update(city_a),var_Me))),a(message(delivery2,send_message(pos_update(city_d),var_Me))),format('Refilled all warehouses',[]),retract(phase(init)),assert(phase(ready)).
-
-eve(start_check(var_Sender)):-phase(ready),a(message(var_Sender,send_message(coord_ready,var_Me))).
-
-available_driver(var_Delivery):-delivery_online(var_Delivery),\+delivery_busy(var_Delivery).
-
-available_driver_at(var_Driver,var_Location):-available_driver(var_Driver),driver_at(var_Driver,var_Location).
-
-find_warehouse(var_Resource,var_Quantity,var_Warehouse):-in_stock(var_Warehouse,var_Resource,var_AvailableQty),var_AvailableQty>=var_Quantity.
-
-eve(deliver(var_Location,var_Resource,var_Quantity,var_Sender)):-assert(delivery_request(var_Location,var_Resource,var_Quantity,var_Sender)).
-
-evi(delivery_request(var_Location,var_Resource,var_Quantity,var_Sender)):-available_driver(var_Driver),find_warehouse(var_Resource,var_Quantity,var_Warehouse)->make_delivery(var_Location,var_Resource,var_Quantity),assert(delivery_busy(var_Driver)),format('Asked ~w to deliver ~w ~w to ~w~n',[var_Driver,var_Quantity,var_Resource,var_Location]),retract(delivery_request(var_Location,var_Resource,var_Quantity,var_Sender));format('Rejected delivery of ~w ~w to ~w~nNo drivers available~n',[var_Quantity,var_Resource,var_Location]),reject_delivery(var_Location,var_Resource,var_Quantity,var_Sender),retract(delivery_request(var_Location,var_Resource,var_Quantity,var_Sender)).
-
-make_delivery(var_Destination,var_Resource,var_Quantity):-available_driver_at(var_Driver,var_DriverLocation),find_warehouse(var_Resource,var_Quantity,var_Warehouse),find_path(var_DriverLocation,var_Warehouse,var_Distance1,var_Path1),find_path(var_Warehouse,var_Destination,var_Distance2,var_Path2),var_TotalDistance is var_Distance1+var_Distance2,a(message(var_Driver,send_message(new_delivery(var_Destination,var_Warehouse,var_Resource,var_Quantity),var_Me))),format('Assigned ~w going from ~w to ~w for a distance of ~w~n~n',[var_Driver,var_Warehouse,var_Destination,var_TotalDistance]).
-
-eve(driver_busy(var_Driver,var_Location,var_Warehouse,var_Resource,var_Quantity)):-format('~w is busy, declined the request~n',[var_Driver]),assert(delivery_request(var_Location,var_Resource,var_Quantity,var_Sender)).
-
-eve(driver_accepts(var_Driver,var_Location,var_Warehouse,var_Resource,var_Quantity)):-delivery_request(var_Location,var_Resource,var_Quantity,var_Sender),retract(delivery_request(var_Location,var_Resource,var_Quantity,var_Sender)),a(message(var_Sender,send_message(accepted(var_Location,var_Resource,var_Quantity),var_Me))),in_stock(var_Warehouse,var_Resource,var_Total),var_NewQty is var_Total-var_Quantity,retract(in_stock(var_Warehouse,var_Resource,var_Total)),assert(in_stock(var_Warehouse,var_Resource,var_NewQty)).
-
-reject_delivery(var_Location,var_Resource,var_Quantity,var_Sender):-a(message(var_Sender,send_message(rejected(var_Location,var_Resource,var_Quantity),var_Me))).
+eve(coord_ready):-assert(coord(go)),retract(phase(init)),format('Coordinator is ready~n',[]).
 
 :-dynamic receive/1.
 
@@ -185,11 +99,11 @@ call_inform(var_X,var_Ag,var_T):-asse_cosa(past_event(inform(var_X,var_Ag),var_T
 
 call_refuse(var_X,var_Ag,var_T):-clause(agent(var_A),var__),asse_cosa(past_event(var_X,var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(var_X,var__,var_Ag)),assert(past(var_X,var_Tp,var_Ag)),a(message(var_Ag,reply(received(var_X),var_A))).
 
-call_cfp(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_551353,var_Ontology,_551357),_551347),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_cfp(var_A,var_C,var_Ag,_551391)),a(message(var_Ag,propose(var_A,[_551391],var_AgI))),retractall(ext_agent(var_Ag,_551429,var_Ontology,_551433)).
+call_cfp(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_310383,var_Ontology,_310387),_310377),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_cfp(var_A,var_C,var_Ag,_310421)),a(message(var_Ag,propose(var_A,[_310421],var_AgI))),retractall(ext_agent(var_Ag,_310459,var_Ontology,_310463)).
 
-call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_551227,var_Ontology,_551231),_551221),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,accept_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_551297,var_Ontology,_551301)).
+call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_310257,var_Ontology,_310261),_310251),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,accept_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_310327,var_Ontology,_310331)).
 
-call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_551115,var_Ontology,_551119),_551109),not(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,reject_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_551171,var_Ontology,_551175)).
+call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_310145,var_Ontology,_310149),_310139),not(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,reject_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_310201,var_Ontology,_310205)).
 
 call_accept_proposal(var_A,var_Mp,var_Ag,var_T):-asse_cosa(past_event(accepted_proposal(var_A,var_Mp,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(accepted_proposal(var_A,var_Mp,var_Ag),var__,var_Ag)),assert(past(accepted_proposal(var_A,var_Mp,var_Ag),var_Tp,var_Ag)).
 
@@ -197,7 +111,7 @@ call_reject_proposal(var_A,var_Mp,var_Ag,var_T):-asse_cosa(past_event(rejected_p
 
 call_failure(var_A,var_M,var_Ag,var_T):-asse_cosa(past_event(failed_action(var_A,var_M,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(failed_action(var_A,var_M,var_Ag),var__,var_Ag)),assert(past(failed_action(var_A,var_M,var_Ag),var_Tp,var_Ag)).
 
-call_cancel(var_A,var_Ag):-if(clause(high_action(var_A,var_Te,var_Ag),_550679),retractall(high_action(var_A,var_Te,var_Ag)),true),if(clause(normal_action(var_A,var_Te,var_Ag),_550713),retractall(normal_action(var_A,var_Te,var_Ag)),true).
+call_cancel(var_A,var_Ag):-if(clause(high_action(var_A,var_Te,var_Ag),_309709),retractall(high_action(var_A,var_Te,var_Ag)),true),if(clause(normal_action(var_A,var_Te,var_Ag),_309743),retractall(normal_action(var_A,var_Te,var_Ag)),true).
 
 external_refused_action_propose(var_A,var_Ag):-clause(not_executable_action_propose(var_A,var_Ag),var__).
 
@@ -205,17 +119,17 @@ evi(external_refused_action_propose(var_A,var_Ag)):-clause(agent(var_Ai),var__),
 
 refused_message(var_AgM,var_Con):-clause(eliminated_message(var_AgM,var__,var__,var_Con,var__),var__).
 
-refused_message(var_To,var_M):-clause(eliminated_message(var_M,var_To,motivation(conditions_not_verified)),_550495).
+refused_message(var_To,var_M):-clause(eliminated_message(var_M,var_To,motivation(conditions_not_verified)),_309525).
 
 evi(refused_message(var_AgM,var_Con)):-clause(agent(var_Ai),var__),a(message(var_AgM,inform(var_Con,motivation(refused_message),var_Ai))),retractall(eliminated_message(var_AgM,var__,var__,var_Con,var__)),retractall(eliminated_message(var_Con,var_AgM,motivation(conditions_not_verified))).
 
-send_jasper_return_message(var_X,var_S,var_T,var_S0):-clause(agent(var_Ag),_550343),a(message(var_S,send_message(sent_rmi(var_X,var_T,var_S0),var_Ag))).
+send_jasper_return_message(var_X,var_S,var_T,var_S0):-clause(agent(var_Ag),_309373),a(message(var_S,send_message(sent_rmi(var_X,var_T,var_S0),var_Ag))).
 
-gest_learn(var_H):-clause(past(learn(var_H),var_T,var_U),_550291),learn_if(var_H,var_T,var_U).
+gest_learn(var_H):-clause(past(learn(var_H),var_T,var_U),_309321),learn_if(var_H,var_T,var_U).
 
-evi(gest_learn(var_H)):-retractall(past(learn(var_H),_550167,_550169)),clause(agente(_550189,_550191,_550193,var_S),_550185),name(var_S,var_N),append(var_L,[46,112,108],var_N),name(var_F,var_L),manage_lg(var_H,var_F),a(learned(var_H)).
+evi(gest_learn(var_H)):-retractall(past(learn(var_H),_309197,_309199)),clause(agente(_309219,_309221,_309223,var_S),_309215),name(var_S,var_N),append(var_L,[46,112,108],var_N),name(var_F,var_L),manage_lg(var_H,var_F),a(learned(var_H)).
 
-cllearn:-clause(agente(_549961,_549963,_549965,var_S),_549957),name(var_S,var_N),append(var_L,[46,112,108],var_N),append(var_L,[46,116,120,116],var_To),name(var_FI,var_To),open(var_FI,read,_550061,[]),repeat,read(_550061,var_T),arg(1,var_T,var_H),write(var_H),nl,var_T==end_of_file,!,close(_550061).
+cllearn:-clause(agente(_308991,_308993,_308995,var_S),_308987),name(var_S,var_N),append(var_L,[46,112,108],var_N),append(var_L,[46,116,120,116],var_To),name(var_FI,var_To),open(var_FI,read,_309091,[]),repeat,read(_309091,var_T),arg(1,var_T,var_H),write(var_H),nl,var_T==end_of_file,!,close(_309091).
 
 send_msg_learn(var_T,var_A,var_Ag):-a(message(var_Ag,confirm(learn(var_T),var_A))).
 

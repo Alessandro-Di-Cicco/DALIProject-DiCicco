@@ -1,5 +1,4 @@
 send_message(send_message(warehouse_ready(_31847),_31847))
-send_message(send_message(warehouse_update(_46659,copper,100),_46659))
-send_message(send_message(warehouse_update(_46627,iron,50),_46627))
-send_message(send_message(warehouse_update(_52251,silver,30),_52251))
-send_message(send_message(material_given,_46673))
+send_message(send_message(warehouse_update(_2959,copper,100),_2959))
+send_message(send_message(warehouse_update(_36663,iron,50),_36663))
+send_message(send_message(warehouse_update(_36631,silver,30),_36631))

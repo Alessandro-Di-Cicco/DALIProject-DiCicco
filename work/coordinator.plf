@@ -200,3 +200,11 @@ remember_event_mod(driver_busy(_1344383,_1344385,_1344387,_1344389,_1344391),num
 past_event(driver_busy(_1344383,_1344385,_1344387,_1344389,_1344391),60).
 external_event(driver_busy,normal).
 mod(driver_busy,check).
+remember_event_mod(message(_1332517,send_message(coord_ready,_1332525)),number(5),last).
+past_event(message(_1332517,send_message(coord_ready,_1332525)),60).
+action(message(_1332517,send_message(coord_ready,_1332525)),normal).
+mod(message(_1332517,send_message(coord_ready,_1332525)),check).
+remember_event_mod(start_check(_1332509),number(5),last).
+past_event(start_check(_1332509),60).
+external_event(start_check,normal).
+mod(start_check,check).
