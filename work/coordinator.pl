@@ -85,11 +85,11 @@ find_warehouse(var_Resource,var_Quantity,var_Warehouse):-in_stock(var_Warehouse,
 
 eve(deliver(var_Location,var_Resource,var_Quantity,var_Sender)):-assert(delivery_request(var_Location,var_Resource,var_Quantity,var_Sender)).
 
-evi(delivery_request(var_Location,var_Resource,var_Quantity,var_Sender)):-available_driver(var_Driver),find_warehouse(var_Resource,var_Quantity,var_Warehouse)->make_delivery(var_Location,var_Resource,var_Quantity),assert(delivery_busy(var_Driver)),format('Asked ~w to deliver ~w ~w to ~w~n',[var_Driver,var_Quantity,var_Resource,var_Location]);format('Rejected delivery of ~w ~w to ~w~nNo drivers available~n',[var_Quantity,var_Resource,var_Location]),reject_delivery(var_Location,var_Resource,var_Quantity,var_Sender),retract(delivery_request(var_Location,var_Resource,var_Quantity,var_Sender)).
+evi(delivery_request(var_Location,var_Resource,var_Quantity,var_Sender)):-available_driver(var_Driver),find_warehouse(var_Resource,var_Quantity,var_Warehouse)->make_delivery(var_Location,var_Resource,var_Quantity),assert(delivery_busy(var_Driver)),format('Asked ~w to deliver ~w ~w to ~w~n',[var_Driver,var_Quantity,var_Resource,var_Location]),retract(delivery_request(var_Location,var_Resource,var_Quantity,var_Sender));format('Rejected delivery of ~w ~w to ~w~nNo drivers available~n',[var_Quantity,var_Resource,var_Location]),reject_delivery(var_Location,var_Resource,var_Quantity,var_Sender),retract(delivery_request(var_Location,var_Resource,var_Quantity,var_Sender)).
 
 make_delivery(var_Destination,var_Resource,var_Quantity):-format('Delivery computation~n',[]),available_driver_at(var_Driver,var_DriverLocation),format('Found driver ~w located in ~w~n',[var_Driver,var_DriverLocation]),find_warehouse(var_Resource,var_Quantity,var_Warehouse),format('Found warehouse ~w with ~w ~w~n',[var_Warehouse,var_Quantity,var_Resource]),find_path(var_DriverLocation,var_Warehouse,var_Distance1,var_Path1),format('Computed path from driver to warehouse ~w~n',[var_Path1]),find_path(var_Warehouse,var_Destination,var_Distance2,var_Path2),format('Computed path from warehouse to destination ~w~n',[var_Path2]),var_TotalDistance is var_Distance1+var_Distance2,a(message(var_Driver,send_message(new_delivery(var_Destination,var_Warehouse,var_Resource,var_Quantity),var_Me))),format('selected ~w going to ~w for a distance of ~w~n~n',[var_SelectedDriver,var_SelectedWarehouse,var_TotalDistance]).
 
-eve(driver_busy(var_Driver,var_Location,var_Warehouse,var_Resource,var_Quantity)):-format('~w is busy, declined the request~n',[var_Driver]).
+eve(driver_busy(var_Driver,var_Location,var_Warehouse,var_Resource,var_Quantity)):-format('~w is busy, declined the request~n',[var_Driver]),assert(delivery_request(var_Location,var_Resource,var_Quantity,var_Sender)).
 
 eve(driver_accepts(var_Driver,var_Location,var_Warehouse,var_Resource,var_Quantity)):-delivery_request(var_Location,var_Resource,var_Quantity,var_Sender),retract(delivery_request(var_Location,var_Resource,var_Quantity,var_Sender)),a(message(var_Sender,send_message(accepted(var_Location,var_Resource,var_Quantity),var_Me))),in_stock(var_Warehouse,var_Resource,var_Total),var_NewQty is var_Total-var_Quantity,retract(in_stock(var_Warehouse,var_Resource,var_Total)),assert(in_stock(var_Warehouse,var_Resource,var_NewQty)).
 
@@ -185,11 +185,11 @@ call_inform(var_X,var_Ag,var_T):-asse_cosa(past_event(inform(var_X,var_Ag),var_T
 
 call_refuse(var_X,var_Ag,var_T):-clause(agent(var_A),var__),asse_cosa(past_event(var_X,var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(var_X,var__,var_Ag)),assert(past(var_X,var_Tp,var_Ag)),a(message(var_Ag,reply(received(var_X),var_A))).
 
-call_cfp(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_561415,var_Ontology,_561419),_561409),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_cfp(var_A,var_C,var_Ag,_561453)),a(message(var_Ag,propose(var_A,[_561453],var_AgI))),retractall(ext_agent(var_Ag,_561491,var_Ontology,_561495)).
+call_cfp(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_567719,var_Ontology,_567723),_567713),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_cfp(var_A,var_C,var_Ag,_567757)),a(message(var_Ag,propose(var_A,[_567757],var_AgI))),retractall(ext_agent(var_Ag,_567795,var_Ontology,_567799)).
 
-call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_561289,var_Ontology,_561293),_561283),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,accept_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_561359,var_Ontology,_561363)).
+call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_567593,var_Ontology,_567597),_567587),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,accept_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_567663,var_Ontology,_567667)).
 
-call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_561177,var_Ontology,_561181),_561171),not(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,reject_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_561233,var_Ontology,_561237)).
+call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_567481,var_Ontology,_567485),_567475),not(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,reject_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_567537,var_Ontology,_567541)).
 
 call_accept_proposal(var_A,var_Mp,var_Ag,var_T):-asse_cosa(past_event(accepted_proposal(var_A,var_Mp,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(accepted_proposal(var_A,var_Mp,var_Ag),var__,var_Ag)),assert(past(accepted_proposal(var_A,var_Mp,var_Ag),var_Tp,var_Ag)).
 
@@ -197,7 +197,7 @@ call_reject_proposal(var_A,var_Mp,var_Ag,var_T):-asse_cosa(past_event(rejected_p
 
 call_failure(var_A,var_M,var_Ag,var_T):-asse_cosa(past_event(failed_action(var_A,var_M,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(failed_action(var_A,var_M,var_Ag),var__,var_Ag)),assert(past(failed_action(var_A,var_M,var_Ag),var_Tp,var_Ag)).
 
-call_cancel(var_A,var_Ag):-if(clause(high_action(var_A,var_Te,var_Ag),_560741),retractall(high_action(var_A,var_Te,var_Ag)),true),if(clause(normal_action(var_A,var_Te,var_Ag),_560775),retractall(normal_action(var_A,var_Te,var_Ag)),true).
+call_cancel(var_A,var_Ag):-if(clause(high_action(var_A,var_Te,var_Ag),_567045),retractall(high_action(var_A,var_Te,var_Ag)),true),if(clause(normal_action(var_A,var_Te,var_Ag),_567079),retractall(normal_action(var_A,var_Te,var_Ag)),true).
 
 external_refused_action_propose(var_A,var_Ag):-clause(not_executable_action_propose(var_A,var_Ag),var__).
 
@@ -205,17 +205,17 @@ evi(external_refused_action_propose(var_A,var_Ag)):-clause(agent(var_Ai),var__),
 
 refused_message(var_AgM,var_Con):-clause(eliminated_message(var_AgM,var__,var__,var_Con,var__),var__).
 
-refused_message(var_To,var_M):-clause(eliminated_message(var_M,var_To,motivation(conditions_not_verified)),_560557).
+refused_message(var_To,var_M):-clause(eliminated_message(var_M,var_To,motivation(conditions_not_verified)),_566861).
 
 evi(refused_message(var_AgM,var_Con)):-clause(agent(var_Ai),var__),a(message(var_AgM,inform(var_Con,motivation(refused_message),var_Ai))),retractall(eliminated_message(var_AgM,var__,var__,var_Con,var__)),retractall(eliminated_message(var_Con,var_AgM,motivation(conditions_not_verified))).
 
-send_jasper_return_message(var_X,var_S,var_T,var_S0):-clause(agent(var_Ag),_560405),a(message(var_S,send_message(sent_rmi(var_X,var_T,var_S0),var_Ag))).
+send_jasper_return_message(var_X,var_S,var_T,var_S0):-clause(agent(var_Ag),_566709),a(message(var_S,send_message(sent_rmi(var_X,var_T,var_S0),var_Ag))).
 
-gest_learn(var_H):-clause(past(learn(var_H),var_T,var_U),_560353),learn_if(var_H,var_T,var_U).
+gest_learn(var_H):-clause(past(learn(var_H),var_T,var_U),_566657),learn_if(var_H,var_T,var_U).
 
-evi(gest_learn(var_H)):-retractall(past(learn(var_H),_560229,_560231)),clause(agente(_560251,_560253,_560255,var_S),_560247),name(var_S,var_N),append(var_L,[46,112,108],var_N),name(var_F,var_L),manage_lg(var_H,var_F),a(learned(var_H)).
+evi(gest_learn(var_H)):-retractall(past(learn(var_H),_566533,_566535)),clause(agente(_566555,_566557,_566559,var_S),_566551),name(var_S,var_N),append(var_L,[46,112,108],var_N),name(var_F,var_L),manage_lg(var_H,var_F),a(learned(var_H)).
 
-cllearn:-clause(agente(_560023,_560025,_560027,var_S),_560019),name(var_S,var_N),append(var_L,[46,112,108],var_N),append(var_L,[46,116,120,116],var_To),name(var_FI,var_To),open(var_FI,read,_560123,[]),repeat,read(_560123,var_T),arg(1,var_T,var_H),write(var_H),nl,var_T==end_of_file,!,close(_560123).
+cllearn:-clause(agente(_566327,_566329,_566331,var_S),_566323),name(var_S,var_N),append(var_L,[46,112,108],var_N),append(var_L,[46,116,120,116],var_To),name(var_FI,var_To),open(var_FI,read,_566427,[]),repeat,read(_566427,var_T),arg(1,var_T,var_H),write(var_H),nl,var_T==end_of_file,!,close(_566427).
 
 send_msg_learn(var_T,var_A,var_Ag):-a(message(var_Ag,confirm(learn(var_T),var_A))).
 

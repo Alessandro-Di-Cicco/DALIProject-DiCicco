@@ -171,7 +171,8 @@ delivery_requestI(Location, Resource, Quantity, Sender):>
     (
         make_delivery(Location, Resource, Quantity),
         assert(delivery_busy(Driver)),
-        format('Asked ~w to deliver ~w ~w to ~w~n', [Driver, Quantity, Resource, Location])
+        format('Asked ~w to deliver ~w ~w to ~w~n', [Driver, Quantity, Resource, Location]),
+        retract(delivery_request(Location, Resource, Quantity, Sender))
     );
     (
         format('Rejected delivery of ~w ~w to ~w~nNo drivers available~n', [Quantity, Resource, Location]),
@@ -199,7 +200,10 @@ make_delivery(Destination, Resource, Quantity):-
     format('selected ~w going to ~w for a distance of ~w~n~n', [SelectedDriver, SelectedWarehouse, TotalDistance]).
 
 
-driver_busyE(Driver, Location, Warehouse, Resource, Quantity):> format('~w is busy, declined the request~n', [Driver]).
+/* If a driver is busy, reinstate the request and assign it to someone else */
+driver_busyE(Driver, Location, Warehouse, Resource, Quantity):>
+    format('~w is busy, declined the request~n', [Driver]),
+    assert(delivery_request(Location, Resource, Quantity, Sender)).
 
 /* The second part updates the warehouse's tracked storage */
 driver_acceptsE(Driver, Location, Warehouse, Resource, Quantity):>
@@ -210,6 +214,7 @@ driver_acceptsE(Driver, Location, Warehouse, Resource, Quantity):>
     NewQty is Total - Quantity,
     retract(in_stock(Warehouse, Resource, Total)),
     assert(in_stock(Warehouse, Resource, NewQty)).
+    
 
 
 /* For some reason messages cannot be nested into parentheses so, whenever used in an if-like construct

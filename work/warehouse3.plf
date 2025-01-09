@@ -115,3 +115,11 @@ remember_event_mod(ask(_928223,_928225,_928227),number(5),last).
 past_event(ask(_928223,_928225,_928227),60).
 external_event(ask,normal).
 mod(ask,check).
+remember_event_mod(message(_907411,send_message(material_denied,_907419)),number(5),last).
+past_event(message(_907411,send_message(material_denied,_907419)),60).
+action(message(_907411,send_message(material_denied,_907419)),normal).
+mod(message(_907411,send_message(material_denied,_907419)),check).
+remember_event_mod(message(_907395,send_message(material_given,_907403)),number(5),last).
+past_event(message(_907395,send_message(material_given,_907403)),60).
+action(message(_907395,send_message(material_given,_907403)),normal).
+mod(message(_907395,send_message(material_given,_907403)),check).

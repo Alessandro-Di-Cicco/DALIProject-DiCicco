@@ -1,2 +1,2 @@
-send_message(send_message(delivery_ready(_38913),_38913))
-send_message(send_message(driver_location(_56559,city_d),_56559))
+send_message(send_message(delivery_ready(_35405),_35405))
+send_message(send_message(driver_location(_34803,city_d),_34803))

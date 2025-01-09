@@ -5,23 +5,21 @@
 
 :-dynamic phase/1.
 
-printall:-owns(copper,var_Q),format('There is ~w copper~n',[var_Q]).
-
 phase(init).
 
 evi(phase(init)):-a(message(coordinator,send_message(warehouse_ready(var_Me),var_Me))).
 
 eve(ready_received):-retract(phase(init)),format('Synced with coordinator~n',[]).
 
-evi(in_request(var_R,var_Q,var_Sender)):-owns(var_R,var_P),var_P>=var_Q,format([111,98,116,97,105,110,101,100,32,126,119,32,126,119,126,110],[var_R,var_Q]),retract(in_request(var_R,var_Q,var_Sender)),retract(owns(var_R,var_P)),var_New is var_P-var_Q,assert(owns(var_R,var_New)),printall,give(var_R,var_Q,var_Sender).
+eve(ask(var_M,var_Q,var_Sender)):-owns(var_M,var_P),var_P>=var_Q,format('Providing ~w ~w~n',[var_M,var_Q]),retract(owns(var_M,var_P)),var_New is var_P-var_Q,assert(owns(var_M,var_New)),give(var_R,var_Q,var_Sender).
 
-evi(in_request(var_R,var_Q,var_Sender)):-owns(var_R,var_P),var_P<var_Q,format([114,101,106,101,99,116,105,110,103,32,126,119,32,126,119,126,110],[var_R,var_Q]),retract(in_request(var_R,var_Q,var_Sender)),deny(var_R,var_Q,var_Sender).
+eve(ask(var_M,var_Q,var_Sender)):-owns(var_M,var_P),var_P<var_Q,format('Rejecting for lack of material ~w ~w~n',[var_M,var_Q]),deny(var_M,var_Q,var_Sender).
 
-eve(ask(var_M,var_Q,var_Sender)):-format('Received basic request from ~w~n',[var_Sender]),a(message(var_Sender,send_message(ack,var_Me))),assert(in_request(var_M,var_Q,var_Sender)).
+eve(ask(var_M,var_Q,var_Sender)):- \+owns(var_M,var__),format('Rejecting as material is not in stock ~w ~w~n',[var_M,var_Q]),deny(var_M,var_Q,var_Sender).
 
-give(var_R,var_Q,var_Sender):-a(message(var_Sender,send_message(granted(var_R,var_Q),var_Me))).
+give(var_R,var_Q,var_Sender):-a(message(var_Sender,send_message(material_given,var_Me))).
 
-deny(var_R,var_Q,var_Sender):-a(message(var_Sender,send_message(deny,var_Me))).
+deny(var_R,var_Q,var_Sender):-a(message(var_Sender,send_message(material_denied,var_Me))).
 
 update_coordinator(var_Resource,var_Qty):-a(message(coordinator,send_message(warehouse_update(var_Me,var_Resource,var_Qty),var_Me))).
 
@@ -121,11 +119,11 @@ call_inform(var_X,var_Ag,var_T):-asse_cosa(past_event(inform(var_X,var_Ag),var_T
 
 call_refuse(var_X,var_Ag,var_T):-clause(agent(var_A),var__),asse_cosa(past_event(var_X,var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(var_X,var__,var_Ag)),assert(past(var_X,var_Tp,var_Ag)),a(message(var_Ag,reply(received(var_X),var_A))).
 
-call_cfp(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_357865,var_Ontology,_357869),_357859),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_cfp(var_A,var_C,var_Ag,_357903)),a(message(var_Ag,propose(var_A,[_357903],var_AgI))),retractall(ext_agent(var_Ag,_357941,var_Ontology,_357945)).
+call_cfp(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_351901,var_Ontology,_351905),_351895),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_cfp(var_A,var_C,var_Ag,_351939)),a(message(var_Ag,propose(var_A,[_351939],var_AgI))),retractall(ext_agent(var_Ag,_351977,var_Ontology,_351981)).
 
-call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_357739,var_Ontology,_357743),_357733),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,accept_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_357809,var_Ontology,_357813)).
+call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_351775,var_Ontology,_351779),_351769),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,accept_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_351845,var_Ontology,_351849)).
 
-call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_357627,var_Ontology,_357631),_357621),not(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,reject_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_357683,var_Ontology,_357687)).
+call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_351663,var_Ontology,_351667),_351657),not(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,reject_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_351719,var_Ontology,_351723)).
 
 call_accept_proposal(var_A,var_Mp,var_Ag,var_T):-asse_cosa(past_event(accepted_proposal(var_A,var_Mp,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(accepted_proposal(var_A,var_Mp,var_Ag),var__,var_Ag)),assert(past(accepted_proposal(var_A,var_Mp,var_Ag),var_Tp,var_Ag)).
 
@@ -133,7 +131,7 @@ call_reject_proposal(var_A,var_Mp,var_Ag,var_T):-asse_cosa(past_event(rejected_p
 
 call_failure(var_A,var_M,var_Ag,var_T):-asse_cosa(past_event(failed_action(var_A,var_M,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(failed_action(var_A,var_M,var_Ag),var__,var_Ag)),assert(past(failed_action(var_A,var_M,var_Ag),var_Tp,var_Ag)).
 
-call_cancel(var_A,var_Ag):-if(clause(high_action(var_A,var_Te,var_Ag),_357191),retractall(high_action(var_A,var_Te,var_Ag)),true),if(clause(normal_action(var_A,var_Te,var_Ag),_357225),retractall(normal_action(var_A,var_Te,var_Ag)),true).
+call_cancel(var_A,var_Ag):-if(clause(high_action(var_A,var_Te,var_Ag),_351227),retractall(high_action(var_A,var_Te,var_Ag)),true),if(clause(normal_action(var_A,var_Te,var_Ag),_351261),retractall(normal_action(var_A,var_Te,var_Ag)),true).
 
 external_refused_action_propose(var_A,var_Ag):-clause(not_executable_action_propose(var_A,var_Ag),var__).
 
@@ -141,17 +139,17 @@ evi(external_refused_action_propose(var_A,var_Ag)):-clause(agent(var_Ai),var__),
 
 refused_message(var_AgM,var_Con):-clause(eliminated_message(var_AgM,var__,var__,var_Con,var__),var__).
 
-refused_message(var_To,var_M):-clause(eliminated_message(var_M,var_To,motivation(conditions_not_verified)),_357007).
+refused_message(var_To,var_M):-clause(eliminated_message(var_M,var_To,motivation(conditions_not_verified)),_351043).
 
 evi(refused_message(var_AgM,var_Con)):-clause(agent(var_Ai),var__),a(message(var_AgM,inform(var_Con,motivation(refused_message),var_Ai))),retractall(eliminated_message(var_AgM,var__,var__,var_Con,var__)),retractall(eliminated_message(var_Con,var_AgM,motivation(conditions_not_verified))).
 
-send_jasper_return_message(var_X,var_S,var_T,var_S0):-clause(agent(var_Ag),_356855),a(message(var_S,send_message(sent_rmi(var_X,var_T,var_S0),var_Ag))).
+send_jasper_return_message(var_X,var_S,var_T,var_S0):-clause(agent(var_Ag),_350891),a(message(var_S,send_message(sent_rmi(var_X,var_T,var_S0),var_Ag))).
 
-gest_learn(var_H):-clause(past(learn(var_H),var_T,var_U),_356803),learn_if(var_H,var_T,var_U).
+gest_learn(var_H):-clause(past(learn(var_H),var_T,var_U),_350839),learn_if(var_H,var_T,var_U).
 
-evi(gest_learn(var_H)):-retractall(past(learn(var_H),_356679,_356681)),clause(agente(_356701,_356703,_356705,var_S),_356697),name(var_S,var_N),append(var_L,[46,112,108],var_N),name(var_F,var_L),manage_lg(var_H,var_F),a(learned(var_H)).
+evi(gest_learn(var_H)):-retractall(past(learn(var_H),_350715,_350717)),clause(agente(_350737,_350739,_350741,var_S),_350733),name(var_S,var_N),append(var_L,[46,112,108],var_N),name(var_F,var_L),manage_lg(var_H,var_F),a(learned(var_H)).
 
-cllearn:-clause(agente(_356473,_356475,_356477,var_S),_356469),name(var_S,var_N),append(var_L,[46,112,108],var_N),append(var_L,[46,116,120,116],var_To),name(var_FI,var_To),open(var_FI,read,_356573,[]),repeat,read(_356573,var_T),arg(1,var_T,var_H),write(var_H),nl,var_T==end_of_file,!,close(_356573).
+cllearn:-clause(agente(_350509,_350511,_350513,var_S),_350505),name(var_S,var_N),append(var_L,[46,112,108],var_N),append(var_L,[46,116,120,116],var_To),name(var_FI,var_To),open(var_FI,read,_350609,[]),repeat,read(_350609,var_T),arg(1,var_T,var_H),write(var_H),nl,var_T==end_of_file,!,close(_350609).
 
 send_msg_learn(var_T,var_A,var_Ag):-a(message(var_Ag,confirm(learn(var_T),var_A))).
 
