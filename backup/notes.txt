@@ -40,10 +40,6 @@ make_delivery(Location, Resource, Quantity),
 :-dynamic request/1.
 :-dynamic refills/1.
 
-cities([city_a, city_b, city_c, city_d]).
-materials([copper, iron, silver]).
-amount_bounds(5, 20).
-
 
 phase(init).
 
@@ -73,34 +69,3 @@ random_element(List, Element):-
 /* ------------------------------------------------------*/
 
 
-requestI(Num):>
-    Num > 0,
-    retract(request(Num)),
-    N is Num - 1,
-
-    perform_request,
-
-    pause,
-
-    assert(request(N)).
-
-
-requestI(0):>
-    retract(request(0)),
-    perform_request,
-
-    pause,
-
-    assert(refills(5)).
-
-
-perform_request:-
-    cities(CityList),
-    materials(MaterialList),
-    amount_bounds(Min, Max),
-
-    random_element(CityList, City),
-    random_element(MaterialList, Material),
-    random(Min, Max, Amount),
-    messageA(coordinator, send_message(deliver(City, Material, Amount, Me), Me)),
-    format('Requested ~w ~w to ~w~n', [Amount, Material, City]).

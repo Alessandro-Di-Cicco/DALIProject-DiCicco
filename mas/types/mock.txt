@@ -1,5 +1,13 @@
 :-dynamic phase/1.
 :-dynamic coord/1.
+:-dynamic request_phase/1.
+:-dynamic refill_phase/1.
+
+cities([city_a, city_b, city_c, city_d]).
+warehouses([warehouse1, warehouse2, warehouse3]).
+materials([copper, iron, silver]).
+amount_bounds(5, 20).
+
 
 phase(init).
 phaseI(init):> 
@@ -8,6 +16,94 @@ phaseI(init):>
 
 
 coord_readyE:>
-    assert(coord(go)),
+    asserta(coord(go)),
     retract(phase(init)),
-    format('Coordinator is ready~n', []).
+    format('Coordinator is ready~n', []),
+    random(1, 4, RandNum),
+    assert(request_phase(RandNum)),
+    format('Setup completed~n', []).
+
+/* Utility predicates to wait between operations and to fetch random
+elements from lists */
+pause:-
+    random(1, 5, Len),
+    sleep(Len).
+
+shortpause:-
+    random(1, 2, Len),
+    sleep(Len).
+
+random_element(List, Element):-
+    length(List, Length),
+    L2 is Length + 1,
+    random(1, L2, Index),
+    nth1(Index, List, Element).
+/* --------------------------------------------------------------- */
+
+coordI(go):>
+    request_phase(Num),
+    format('Requests left: ~w~n', [Num]),
+    retract(request_phase(Num)),
+
+    perform_request,
+    pause,
+
+    (Num > 1 -> 
+        (
+            N is Num - 1,
+            assert(request_phase(N))
+        );
+        (
+            random(2, 5, R),
+            assert(refill_phase(R))
+        )
+    ).
+
+
+coordI(go):>
+    refill_phase(Num),
+    format('Refills left: ~w~n', [Num]),
+    retract(refill_phase(Num)),
+
+    perform_refill,
+    shortpause,
+
+    (Num > 1 ->
+        (
+            N is Num - 1,
+            assert(refill_phase(N))
+        );
+        (
+            random(1, 5, R),
+            assert(request_phase(R))
+        )
+    ).
+
+
+rejectedE(Location, Resource, Quantity):>
+    format('Could not deliver ~w ~w to ~w, no drivers available~n', [Quantity, Resource, Location]).
+
+
+perform_request:-
+    cities(CityList),
+    materials(MaterialList),
+    amount_bounds(Min, Max),
+
+    random_element(CityList, City),
+    random_element(MaterialList, Material),
+    random(Min, Max, Amount),
+    messageA(coordinator, send_message(deliver(City, Material, Amount, Me), Me)),
+    format('Requested ~w ~w to ~w~n', [Amount, Material, City]).
+
+
+perform_refill:-
+    warehouses(WarehouseList),
+    materials(MaterialList),
+    amount_bounds(Min, Max),
+
+    random_element(WarehouseList, Warehouse),
+    random_element(MaterialList, Material),
+    random(Min, Max, Amount),
+
+    messageA(Warehouse, send_message(restock(Material, Amount), Me)),
+    format('Added ~w ~w to ~w~n', [Amount, Material, Warehouse]).

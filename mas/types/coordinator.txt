@@ -42,13 +42,9 @@ path(Start, Start, 0, Visited, Visited):- true.
 /* This cuts off paths longer than a preset amount, for the current small map 6 is more than enough
 as you can get to any point from any starting location in just 3 steps */
 path(Start, End, TotalDistance, Visited, Path) :-
-    format('Looking for path from ~w to ~w with visited ~w~n', [Start, End, Visited]),
     connected(Start, Intermediate, Distance1),
-    format('   Exploring ~w~n', [Intermediate]),
     \+ member(Intermediate, Visited),
-    format('Exploring Intermediate ~w from ~w~n', [Intermediate, Start]),
     append([Intermediate], Visited, NewList),
-    format('Created ~w from ~w and ~w~n', [NewList, Intermediate, Visited]),
     path(Intermediate, End, Distance2, NewList, Path),
     TotalDistance is Distance1 + Distance2.
 
@@ -117,6 +113,7 @@ delivery_readyE(Delivery):> \+ phase(waiting),
 driver_locationE(Driver, Location):>
     (driver_at(Driver, OtherLocation) -> retract(driver_at(Driver, OtherLocation)); true),
     assert(driver_at(Driver, Location)),
+    (delivery_busy(Driver) -> retract(delivery_busy(Driver)), true),
     format('~w is now located at ~w~n', [Driver, Location]).
 
 
