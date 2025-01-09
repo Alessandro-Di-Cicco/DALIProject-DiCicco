@@ -5,15 +5,29 @@
 
 :-dynamic current_position/1.
 
+:-dynamic delivering/4.
+
+:-dynamic wait/2.
+
 phase(init).
 
 evi(phase(init)):-a(message(coordinator,send_message(delivery_ready(var_Me),var_Me))).
 
 eve(ready_received):-retract(phase(init)),format('Synced with coordinator~n',[]).
 
-eve(new_delivery(var_Location,var_Resource,var_Quantity)):- \+state(busy),format('Accepted delivery for ~w ~w to ~w~n',[var_Quantity,var_Resource,var_Location]),a(message(coordinator,send_message(driver_accepts(var_Me,var_Location,var_Resource,var_Quantity),var_Me))),assert(busy).
+eve(new_delivery(var_Location,var_Warehouse,var_Resource,var_Quantity)):- \+state(busy),format('Accepted delivery for ~w ~w from ~w to ~w~n',[var_Quantity,var_Resource,var_Warehouse,var_Location]),a(message(coordinator,send_message(driver_accepts(var_Me,var_Location,var_Warehouse,var_Resource,var_Quantity),var_Me))),assert(busy),assert(delivering(var_Location,var_Warehouse,var_Resource,var_Quantity)),random(1,8,var_R),assert(wait(fetch,var_R)).
 
-eve(new_delivery(var_Location,var_Resource,var_Quantity)):-state(busy),format('Refusing delivery for ~w ~w to ~w~n',[var_Quantity,var_Resource,var_Location]),a(message(coordinator,send_message(driver_busy(var_Me,var_Location,var_Resource,var_Quantity),var_Me))).
+eve(new_delivery(var_Location,var_Warehouse,var_Resource,var_Quantity)):-state(busy),format('Refusing delivery for ~w ~w from ~w to ~w~n',[var_Quantity,var_Resource,var_Warehouse,var_Location]),a(message(coordinator,send_message(driver_busy(var_Me,var_Location,var_Warehouse,var_Resource,var_Quantity),var_Me))).
+
+evi(wait(fetch,var_T)):-var_T>0,retract(wait(fetch,var_T)),var_E is var_T-1,assert(wait(fetch,var_E)).
+
+evi(wait(fetch,0)):-delivering(var_Location,var_Warehouse,var_Resource,var_Quantity),retract(wait(fetch,0)),a(message(var_Warehouse,send_message(ask(var_Resource,var_Quantity,var_Me),var_Me))).
+
+eve(granted(var_Resource,var_Amount)):-format('Warehouse provided ~w ~w~n',[var_Amount,var_Resource]),random(1,8,var_R),assert(wait(deliver,var_R)).
+
+evi(wait(deliver,var_T)):-var_T>0,retract(wait(deliver,var_T)),var_E is var_T-1,assert(wait(deliver,var_E)).
+
+evi(wait(deliver,0)):-delivering(var_Location,var_Warehouse,var_Resource,var_Quantity),format('Delivery completed, ~w reached~n',[var_Location]),retract(delivering(var_Location,var_Warehouse,var_Resource,var_Quantity)),retract(wait(deliver,0)),current_position(var_OldPos),retract(current_position(var_OldPos)),assert(current_position(var_Location)),a(message(coordinator,send_message(driver_location(var_Me,var_Location),var_Me))).
 
 eve(pos_update(var_Where)):-format('Moving to ~w~n',[var_Where]),(current_position(var_Other)->retract(current_position(var_Other));true),assert(current_position(var_Where)),a(message(coordinator,send_message(driver_location(var_Me,var_Where),var_Me))).
 
@@ -94,3 +108,127 @@ call_query_ref(var_X,var__,var_Ag):-clause(agent(var_A),var__),var(var_X),a(mess
 call_query_ref(var_X,var_N,var_Ag):-clause(agent(var_A),var__),not(var(var_X)),not(meta_ref(var_X,var_N,var__,var__)),a(message(var_Ag,inform(query_ref(var_X,var_N),motivation(no_values),var_A))).
 
 call_agree(var_X,var_Ag):-clause(agent(var_A),var__),ground(var_X),meta_agree(var_X,var_Ag),a(message(var_Ag,inform(agree(var_X),values(yes),var_A))).
+
+call_confirm(var_X,var_Ag,var_T):-ground(var_X),statistics(walltime,[var_Tp,var__]),asse_cosa(past_event(var_X,var_T)),retractall(past(var_X,var_Tp,var_Ag)),assert(past(var_X,var_Tp,var_Ag)).
+
+call_disconfirm(var_X,var_Ag):-ground(var_X),retractall(past(var_X,var__,var_Ag)),retractall(past_event(var_X,var__)).
+
+call_agree(var_X,var_Ag):-clause(agent(var_A),var__),ground(var_X),not(meta_agree(var_X,var__)),a(message(var_Ag,inform(agree(var_X),values(no),var_A))).
+
+call_agree(var_X,var_Ag):-clause(agent(var_A),var__),not(ground(var_X)),a(message(var_Ag,refuse(agree(variable),motivation(refused_variables),var_A))).
+
+call_inform(var_X,var_Ag,var_M,var_T):-asse_cosa(past_event(inform(var_X,var_M,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(inform(var_X,var_M,var_Ag),var__,var_Ag)),assert(past(inform(var_X,var_M,var_Ag),var_Tp,var_Ag)).
+
+call_inform(var_X,var_Ag,var_T):-asse_cosa(past_event(inform(var_X,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(inform(var_X,var_Ag),var__,var_Ag)),assert(past(inform(var_X,var_Ag),var_Tp,var_Ag)).
+
+call_refuse(var_X,var_Ag,var_T):-clause(agent(var_A),var__),asse_cosa(past_event(var_X,var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(var_X,var__,var_Ag)),assert(past(var_X,var_Tp,var_Ag)),a(message(var_Ag,reply(received(var_X),var_A))).
+
+call_cfp(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_378901,var_Ontology,_378905),_378895),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_cfp(var_A,var_C,var_Ag,_378939)),a(message(var_Ag,propose(var_A,[_378939],var_AgI))),retractall(ext_agent(var_Ag,_378977,var_Ontology,_378981)).
+
+call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_378775,var_Ontology,_378779),_378769),asserisci_ontologia(var_Ag,var_Ontology,var_A),once(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,accept_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_378845,var_Ontology,_378849)).
+
+call_propose(var_A,var_C,var_Ag):-clause(agent(var_AgI),var__),clause(ext_agent(var_Ag,_378663,var_Ontology,_378667),_378657),not(call_meta_execute_propose(var_A,var_C,var_Ag)),a(message(var_Ag,reject_proposal(var_A,[],var_AgI))),retractall(ext_agent(var_Ag,_378719,var_Ontology,_378723)).
+
+call_accept_proposal(var_A,var_Mp,var_Ag,var_T):-asse_cosa(past_event(accepted_proposal(var_A,var_Mp,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(accepted_proposal(var_A,var_Mp,var_Ag),var__,var_Ag)),assert(past(accepted_proposal(var_A,var_Mp,var_Ag),var_Tp,var_Ag)).
+
+call_reject_proposal(var_A,var_Mp,var_Ag,var_T):-asse_cosa(past_event(rejected_proposal(var_A,var_Mp,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(rejected_proposal(var_A,var_Mp,var_Ag),var__,var_Ag)),assert(past(rejected_proposal(var_A,var_Mp,var_Ag),var_Tp,var_Ag)).
+
+call_failure(var_A,var_M,var_Ag,var_T):-asse_cosa(past_event(failed_action(var_A,var_M,var_Ag),var_T)),statistics(walltime,[var_Tp,var__]),retractall(past(failed_action(var_A,var_M,var_Ag),var__,var_Ag)),assert(past(failed_action(var_A,var_M,var_Ag),var_Tp,var_Ag)).
+
+call_cancel(var_A,var_Ag):-if(clause(high_action(var_A,var_Te,var_Ag),_378227),retractall(high_action(var_A,var_Te,var_Ag)),true),if(clause(normal_action(var_A,var_Te,var_Ag),_378261),retractall(normal_action(var_A,var_Te,var_Ag)),true).
+
+external_refused_action_propose(var_A,var_Ag):-clause(not_executable_action_propose(var_A,var_Ag),var__).
+
+evi(external_refused_action_propose(var_A,var_Ag)):-clause(agent(var_Ai),var__),a(message(var_Ag,failure(var_A,motivation(false_conditions),var_Ai))),retractall(not_executable_action_propose(var_A,var_Ag)).
+
+refused_message(var_AgM,var_Con):-clause(eliminated_message(var_AgM,var__,var__,var_Con,var__),var__).
+
+refused_message(var_To,var_M):-clause(eliminated_message(var_M,var_To,motivation(conditions_not_verified)),_378043).
+
+evi(refused_message(var_AgM,var_Con)):-clause(agent(var_Ai),var__),a(message(var_AgM,inform(var_Con,motivation(refused_message),var_Ai))),retractall(eliminated_message(var_AgM,var__,var__,var_Con,var__)),retractall(eliminated_message(var_Con,var_AgM,motivation(conditions_not_verified))).
+
+send_jasper_return_message(var_X,var_S,var_T,var_S0):-clause(agent(var_Ag),_377891),a(message(var_S,send_message(sent_rmi(var_X,var_T,var_S0),var_Ag))).
+
+gest_learn(var_H):-clause(past(learn(var_H),var_T,var_U),_377839),learn_if(var_H,var_T,var_U).
+
+evi(gest_learn(var_H)):-retractall(past(learn(var_H),_377715,_377717)),clause(agente(_377737,_377739,_377741,var_S),_377733),name(var_S,var_N),append(var_L,[46,112,108],var_N),name(var_F,var_L),manage_lg(var_H,var_F),a(learned(var_H)).
+
+cllearn:-clause(agente(_377509,_377511,_377513,var_S),_377505),name(var_S,var_N),append(var_L,[46,112,108],var_N),append(var_L,[46,116,120,116],var_To),name(var_FI,var_To),open(var_FI,read,_377609,[]),repeat,read(_377609,var_T),arg(1,var_T,var_H),write(var_H),nl,var_T==end_of_file,!,close(_377609).
+
+send_msg_learn(var_T,var_A,var_Ag):-a(message(var_Ag,confirm(learn(var_T),var_A))).
+
+told(var_From,send_message(var_M)):-true.
+
+told(var_Ag,execute_proc(var__)):-true.
+
+told(var_Ag,query_ref(var__,var__)):-true.
+
+told(var_Ag,agree(var__)):-true.
+
+told(var_Ag,confirm(var__),200):-true.
+
+told(var_Ag,disconfirm(var__)):-true.
+
+told(var_Ag,request(var__,var__)):-true.
+
+told(var_Ag,propose(var__,var__)):-true.
+
+told(var_Ag,accept_proposal(var__,var__),20):-true.
+
+told(var_Ag,reject_proposal(var__,var__),20):-true.
+
+told(var__,failure(var__,var__),200):-true.
+
+told(var__,cancel(var__)):-true.
+
+told(var_Ag,inform(var__,var__),70):-true.
+
+told(var_Ag,inform(var__),70):-true.
+
+told(var_Ag,reply(var__)):-true.
+
+told(var__,refuse(var__,var_Xp)):-functor(var_Xp,var_Fp,var__),var_Fp=agree.
+
+tell(var_To,var_From,send_message(var_M)):-true.
+
+tell(var_To,var__,confirm(var__)):-true.
+
+tell(var_To,var__,disconfirm(var__)):-true.
+
+tell(var_To,var__,propose(var__,var__)):-true.
+
+tell(var_To,var__,request(var__,var__)):-true.
+
+tell(var_To,var__,execute_proc(var__)):-true.
+
+tell(var_To,var__,agree(var__)):-true.
+
+tell(var_To,var__,reject_proposal(var__,var__)):-true.
+
+tell(var_To,var__,accept_proposal(var__,var__)):-true.
+
+tell(var_To,var__,failure(var__,var__)):-true.
+
+tell(var_To,var__,query_ref(var__,var__)):-true.
+
+tell(var_To,var__,eve(var__)):-true.
+
+tell(var__,var__,refuse(var_X,var__)):-functor(var_X,var_F,var__),(var_F=send_message;var_F=query_ref).
+
+tell(var_To,var__,inform(var__,var_M)):-true;var_M=motivation(refused_message).
+
+tell(var_To,var__,inform(var__)):-true,var_To\=user.
+
+tell(var_To,var__,propose_desire(var__,var__)):-true.
+
+meta(var_P,var_V,var_AgM):-functor(var_P,var_F,var_N),var_N=0,clause(agent(var_Ag),var__),clause(ontology(var_Pre,[var_Rep,var_Host],var_Ag),var__),if((eq_property(var_F,var_V,var_Pre,[var_Rep,var_Host]);same_as(var_F,var_V,var_Pre,[var_Rep,var_Host]);eq_class(var_F,var_V,var_Pre,[var_Rep,var_Host])),true,if(clause(ontology(var_PreM,[var_RepM,var_HostM],var_AgM),var__),if((eq_property(var_F,var_V,var_PreM,[var_RepM,var_HostM]);same_as(var_F,var_V,var_PreM,[var_RepM,var_HostM]);eq_class(var_F,var_V,var_PreM,[var_RepM,var_HostM])),true,false),false)).
+
+meta(var_P,var_V,var_AgM):-functor(var_P,var_F,var_N),(var_N=1;var_N=2),clause(agent(var_Ag),var__),clause(ontology(var_Pre,[var_Rep,var_Host],var_Ag),var__),if((eq_property(var_F,var_H,var_Pre,[var_Rep,var_Host]);same_as(var_F,var_H,var_Pre,[var_Rep,var_Host]);eq_class(var_F,var_H,var_Pre,[var_Rep,var_Host])),true,if(clause(ontology(var_PreM,[var_RepM,var_HostM],var_AgM),var__),if((eq_property(var_F,var_H,var_PreM,[var_RepM,var_HostM]);same_as(var_F,var_H,var_PreM,[var_RepM,var_HostM]);eq_class(var_F,var_H,var_PreM,[var_RepM,var_HostM])),true,false),false)),var_P=..var_L,substitute(var_F,var_L,var_H,var_Lf),var_V=..var_Lf.
+
+meta(var_P,var_V,var__):-functor(var_P,var_F,var_N),var_N=2,symmetric(var_F),var_P=..var_L,delete(var_L,var_F,var_R),reverse(var_R,var_R1),append([var_F],var_R1,var_R2),var_V=..var_R2.
+
+meta(var_P,var_V,var_AgM):-clause(agent(var_Ag),var__),functor(var_P,var_F,var_N),var_N=2,(symmetric(var_F,var_AgM);symmetric(var_F)),var_P=..var_L,delete(var_L,var_F,var_R),reverse(var_R,var_R1),clause(ontology(var_Pre,[var_Rep,var_Host],var_Ag),var__),if((eq_property(var_F,var_Y,var_Pre,[var_Rep,var_Host]);same_as(var_F,var_Y,var_Pre,[var_Rep,var_Host]);eq_class(var_F,var_Y,var_Pre,[var_Rep,var_Host])),true,if(clause(ontology(var_PreM,[var_RepM,var_HostM],var_AgM),var__),if((eq_property(var_F,var_Y,var_PreM,[var_RepM,var_HostM]);same_as(var_F,var_Y,var_PreM,[var_RepM,var_HostM]);eq_class(var_F,var_Y,var_PreM,[var_RepM,var_HostM])),true,false),false)),append([var_Y],var_R1,var_R2),var_V=..var_R2.
+
+meta(var_P,var_V,var_AgM):-clause(agent(var_Ag),var__),clause(ontology(var_Pre,[var_Rep,var_Host],var_Ag),var__),functor(var_P,var_F,var_N),var_N>2,if((eq_property(var_F,var_H,var_Pre,[var_Rep,var_Host]);same_as(var_F,var_H,var_Pre,[var_Rep,var_Host]);eq_class(var_F,var_H,var_Pre,[var_Rep,var_Host])),true,if(clause(ontology(var_PreM,[var_RepM,var_HostM],var_AgM),var__),if((eq_property(var_F,var_H,var_PreM,[var_RepM,var_HostM]);same_as(var_F,var_H,var_PreM,[var_RepM,var_HostM]);eq_class(var_F,var_H,var_PreM,[var_RepM,var_HostM])),true,false),false)),var_P=..var_L,substitute(var_F,var_L,var_H,var_Lf),var_V=..var_Lf.
+
+meta(var_P,var_V,var_AgM):-clause(agent(var_Ag),var__),clause(ontology(var_Pre,[var_Rep,var_Host],var_Ag),var__),functor(var_P,var_F,var_N),var_N=2,var_P=..var_L,if((eq_property(var_F,var_H,var_Pre,[var_Rep,var_Host]);same_as(var_F,var_H,var_Pre,[var_Rep,var_Host]);eq_class(var_F,var_H,var_Pre,[var_Rep,var_Host])),true,if(clause(ontology(var_PreM,[var_RepM,var_HostM],var_AgM),var__),if((eq_property(var_F,var_H,var_PreM,[var_RepM,var_HostM]);same_as(var_F,var_H,var_PreM,[var_RepM,var_HostM]);eq_class(var_F,var_H,var_PreM,[var_RepM,var_HostM])),true,false),false)),substitute(var_F,var_L,var_H,var_Lf),var_V=..var_Lf.

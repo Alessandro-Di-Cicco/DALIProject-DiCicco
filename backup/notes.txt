@@ -34,3 +34,39 @@ make_delivery(Destination, Resource, Quantity):- format('Hey there cowboy ~w ~w 
 
 make_delivery(Location, Resource, Quantity),
 */
+
+
+
+
+make_delivery(Destination, Resource, Quantity):-
+    format('Delivery computation~n', []),
+    available_driver_at(Driver, DriverLocation),
+
+    format('Found driver ~w located in ~w~n', [Driver, DriverLocation]),
+    find_warehouse(Resource, Quantity, Warehouse),
+
+    format('Found warehouse ~w with ~w ~w~n', [Warehouse, Quantity, Resource]),
+    find_path(DriverLocation, Warehouse, Distance1, Path1),
+
+    format('Computed path from driver to warehouse~n', []),
+    find_path(Warehouse, Destination, Distance2, Path2),
+
+    format('Computed path from warehouse to destination~n', []),
+    TotalDistance is Distance1 + Distance2,
+
+    format('selected ~w going to ~w for a distance of ~w~n', [SelectedDriver, SelectedWarehouse, TotalDistance]).
+
+
+path(X, Y, Path) :-
+    path(X, Y, [X, Y], P1),
+    Path = [X|P1].    
+
+path(X, Y, _, Path) :-
+    connected(X, Y, _),
+    Path = [Y].
+
+path(X, Y, Visited, Path) :-
+    connected(X, Z, _),
+    not(member(Z, Visited)),
+    path(Z, Y, [Z|Visited], P1),
+    Path = [Z|P1].

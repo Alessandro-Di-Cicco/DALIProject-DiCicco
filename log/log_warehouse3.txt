@@ -1,0 +1,3 @@
+send_message(send_message(warehouse_ready(_34577),_34577))
+send_message(send_message(warehouse_update(_50203,copper,50),_50203))
+send_message(send_message(warehouse_update(_55875,iron,200),_55875))

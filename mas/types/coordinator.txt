@@ -1,3 +1,4 @@
+:-dynamic distance/3.
 :-dynamic phase/1.
 :-dynamic waiting_for/2.
 
@@ -27,27 +28,39 @@ distance(city_c, city_d, 3).
 distance(warehouse2, warehouse3, 1.5).
 
 /* Distance commutativity rule */
-distance(From, To, N) :- distance(To, From, N).
+connected(A, B, Dist):- distance(A, B, Dist).
+connected(B, A, Dist):- distance(A, B, Dist).
 
 /* -------------------------------------- */
 
 /* ========= Pathfinding logic ========= */
 
 /* Base case */
-path(Start, Target, Distance):- distance(Start, Target, Distance).
+path(Start, Start, 0, Visited, Visited):- true.
 
 /* Induction, this need to exclude repetitions somehow. Use a list or a set? */
-path(Start, End, TotalDistance):-
-    distance(Start, Intermediate, Distance1),
-    path(Intermediate, End, Distance2),
+/* This cuts off paths longer than a preset amount, for the current small map 6 is more than enough
+as you can get to any point from any starting location in just 3 steps */
+path(Start, End, TotalDistance, Visited, Path) :-
+    format('Looking for path from ~w to ~w with visited ~w~n', [Start, End, Visited]),
+    connected(Start, Intermediate, Distance1),
+    format('   Exploring ~w~n', [Intermediate]),
+    \+ member(Intermediate, Visited),
+    format('Exploring Intermediate ~w from ~w~n', [Intermediate, Start]),
+    append([Intermediate], Visited, NewList),
+    format('Created ~w from ~w and ~w~n', [NewList, Intermediate, Visited]),
+    path(Intermediate, End, Distance2, NewList, Path),
     TotalDistance is Distance1 + Distance2.
+
+find_path(Start, End, TotalDistance, Path):-
+    path(Start, End, TotalDistance, [Start], Path).
 
 /* Shortest path search:
 Note that this approach is extremely slow and would have to be replaced
 for bigger graphs. Some form of heuristic search (e.g. A*) would be better suited
 for the task */
 shortest_path(Start, End, ShortestDistance):-
-    findall(Distance, path(Start, End, Distance), Distances),
+    findnsols(5, Distance, path(Start, End, Distance, Visited), Distances),
     min_list(Distances, ShortestDistance).
 
 /* ===================================== */
@@ -168,20 +181,35 @@ delivery_requestI(Location, Resource, Quantity, Sender):>
 
 make_delivery(Destination, Resource, Quantity):-
     format('Delivery computation~n', []),
+
     available_driver_at(Driver, DriverLocation),
+    format('Found driver ~w located in ~w~n', [Driver, DriverLocation]),
+
     find_warehouse(Resource, Quantity, Warehouse),
-    shortest_path(DriverLocation, Warehouse, Distance1),
-    shortest_path(Warehouse, Destination, Distance2),
+    format('Found warehouse ~w with ~w ~w~n', [Warehouse, Quantity, Resource]),
+
+    find_path(DriverLocation, Warehouse, Distance1, Path1),
+    format('Computed path from driver to warehouse ~w~n', [Path1]),
+
+    find_path(Warehouse, Destination, Distance2, Path2),
+    format('Computed path from warehouse to destination ~w~n', [Path2]),
+
     TotalDistance is Distance1 + Distance2,
-    format('selected ~w going to ~w for a distance of ~w~n', [SelectedDriver, SelectedWarehouse, TotalDistance]).
+    messageA(Driver, send_message(new_delivery(Destination, Warehouse, Resource, Quantity), Me)),
+    format('selected ~w going to ~w for a distance of ~w~n~n', [SelectedDriver, SelectedWarehouse, TotalDistance]).
 
 
-driver_busyE(Driver, Location, Resource, Quantity):> format('~w is busy, declined the request~n', [Driver]).
+driver_busyE(Driver, Location, Warehouse, Resource, Quantity):> format('~w is busy, declined the request~n', [Driver]).
 
-driver_acceptsE(Driver, Location, Resource, Quantity):>
+/* The second part updates the warehouse's tracked storage */
+driver_acceptsE(Driver, Location, Warehouse, Resource, Quantity):>
     delivery_request(Location, Resource, Quantity, Sender),
     retract(delivery_request(Location, Resource, Quantity, Sender)),
-    messageA(Sender, send_message(accepted(Location, Resource, Quantity), Me)).
+    messageA(Sender, send_message(accepted(Location, Resource, Quantity), Me)),
+    in_stock(Warehouse, Resource, Total),
+    NewQty is Total - Quantity,
+    retract(in_stock(Warehouse, Resource, Total)),
+    assert(in_stock(Warehouse, Resource, NewQty)).
 
 
 /* For some reason messages cannot be nested into parentheses so, whenever used in an if-like construct

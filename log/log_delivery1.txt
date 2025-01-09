@@ -1,0 +1,3 @@
+send_message(send_message(delivery_ready(_38913),_38913))
+send_message(send_message(driver_location(_38311,city_a),_38311))
+send_message(send_message(driver_accepts(_56939,city_d,warehouse1,silver,10),_56939))
